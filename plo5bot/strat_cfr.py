@@ -461,4 +461,9 @@ def pg_exempt(st, prm=None):
     return ""
 
 
+def observe(result, memory):
+    """Update the shared opponent model after a finished hand."""
+    return v0.observe(result, memory)
+
+
 # The supplied photos end here. Any further original lines are unavailable.

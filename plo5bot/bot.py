@@ -152,13 +152,13 @@ class Bot:
             if clock is not None:
                 clock["errors"] += 1
             memory["last_error"] = f"{type(exc).__name__}: {exc}"
-        if action == Action.FOLD and obs.street == Street.PREFLOP and obs.is_button and not obs.action_history:
-            action = Action.CHECK_CALL  # never fold the small blind on our first decision: limp instead
         if type(action) is not Action or action not in obs.legal_actions:
             clock = memory.get("clock")
             if clock is not None:
                 clock["fallbacks"] += 1
             action = safe_default(obs)
+        if action == Action.FOLD and obs.street == Street.PREFLOP and obs.is_button and not obs.action_history:
+            action = Action.CHECK_CALL  # never fold the small blind on our first decision: limp instead
         try:
             _remember(obs, action, memory)
         except BaseException:

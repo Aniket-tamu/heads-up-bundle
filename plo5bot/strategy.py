@@ -60,9 +60,9 @@ def range_equity(obs, frac, budget_s):
     n = 300 if budget_s > 0.003 else 150
     pool = equity.sample_opponents(live, int(n / max(frac, 0.15)), rng)
     if frac < 1:
-        tids = (cards.triple_id(**t) for t in _triples(board))
+        tids = np.array([cards.triple_id(*t) for t in _triples(board)], dtype=np.int64)
         opp_pairs = equity.PID[pool[:, equity.P10[:, 0]], pool[:, equity.P10[:, 1]]]
-        cur = cards.PT[opp_pairs[:, :, None], np.array(tids)[None, None, :]].max(axis=(1, 2))
+        cur = cards.PT[opp_pairs[:, :, None], tids[None, None, :]].max(axis=(1, 2))
         keep = np.argsort(-cur, kind="stable")[:max(20, int(len(pool) * frac))]
         pool = pool[keep]
     if len(board) == 4:

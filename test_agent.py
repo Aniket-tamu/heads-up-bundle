@@ -138,6 +138,14 @@ def test_memory_is_fresh_each_half(bot):
     assert after_reset.keys() == fresh.MEMORY.keys(), "memory should only hold what new_half() puts there"
 
 
+def test_strategy_does_not_silently_fall_back(bot):
+    module, client = bot
+    start_half(client)
+    play_hands(client, 50, seed="strategy-health")
+    assert module.MEMORY["clock"]["errors"] == 0, module.MEMORY.get("last_error")
+    assert module.MEMORY["last_error"] == ""
+
+
 # ---------------------------------------------------------------------------
 # The server plumbing still works (only fails if you edited it)
 # ---------------------------------------------------------------------------
