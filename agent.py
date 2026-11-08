@@ -38,9 +38,15 @@ from game import Action, AgentConfig, HandResult, Observation, Street
 # answer within 15 seconds of starting.
 warmup()
 
+# Our bot lives in the plo5bot package; importing it loads its tables, and
+# its warmup() runs a few decisions so the first real request is fast.
+from plo5bot import bot as plo5  # noqa: E402
+
+plo5.warmup()
+
 # rename as your team/bot's name
-PARTICIPANT = "TotallyAwesomeDatathonParticipant"
-AGENT_NAME = "JustAsAwesomeAgent"
+PARTICIPANT = "HeadsUpPlo5"
+AGENT_NAME = "DuplicateGrinder"
 
 
 # ===== YOUR CODE HERE =====
@@ -55,7 +61,7 @@ def new_half(config: AgentConfig, memory: dict) -> None:
     In the tournament, each half runs in a brand-new copy of your server,
     so nothing you learn in one half carries over to the other half.
     """
-    memory["hands_played"] = 0
+    plo5.new_half(config, memory)
 
 
 def choose_action(obs: Observation, memory: dict) -> Action:
@@ -86,11 +92,8 @@ def choose_action(obs: Observation, memory: dict) -> Action:
     scores your hand (higher is better).
     """
 
-    # Simple example of a heuristic bot, which just checks when it is of no cost, otherwise folds
-    # Replace this with your strategy!
-    if obs.to_call == 0:
-        return Action.CHECK_CALL
-    return Action.FOLD
+    # plo5.choose_action never raises and always returns one of obs.legal_actions.
+    return plo5.choose_action(obs, memory)
 
 
 def on_hand_end(result: HandResult, memory: dict) -> None:
@@ -104,7 +107,7 @@ def on_hand_end(result: HandResult, memory: dict) -> None:
     went_to_showdown, board (cards revealed), opp_hole (opponent's cards,
     only after a showdown, else None), winner ('me', 'opp' or 'split').
     """
-    memory["hands_played"] += 1
+    plo5.on_hand_end(result, memory)
 
 # ===== END OF YOUR CODE =====
 
