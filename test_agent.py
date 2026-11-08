@@ -144,6 +144,22 @@ def test_strategy_does_not_silently_fall_back(bot):
     play_hands(client, 50, seed="strategy-health")
     assert module.MEMORY["clock"]["errors"] == 0, module.MEMORY.get("last_error")
     assert module.MEMORY["last_error"] == ""
+    assert "off0" in module.MEMORY["cfr"], "CFR hand-end guard did not run"
+
+
+def test_cfr_bounded_policy_and_guard_interfaces(monkeypatch):
+    from plo5bot import bot as bot_module, exploit, strat_cfr
+
+    memory = {}
+    bot_module.DEFAULT.new_half(AgentConfig(), memory)
+    obs = Game(make_deal("guard-interface", 0), 0).observation(0)
+    probs = exploit.base_probs(strat_cfr, obs, memory, 0.004)
+    assert probs and sum(probs.values()) == pytest.approx(1.0)
+
+    memory["params"] = {"guard": True}
+    monkeypatch.setattr(strat_cfr, "balanced", lambda model: True)
+    strat_cfr._guard(memory)
+    assert {"card", "sd"} <= set(memory["params"]["off"])
 
 
 # ---------------------------------------------------------------------------

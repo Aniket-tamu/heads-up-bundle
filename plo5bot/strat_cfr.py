@@ -461,9 +461,47 @@ def pg_exempt(st, prm=None):
     return ""
 
 
+def _bound_lifted(memory, prm):
+    """Whether the exploit layer has evidence to lift its blueprint support bound."""
+    try:
+        from . import exploit
+        return exploit.off_policy(memory.get("xp") or {}, exploit.OFFP_CLASSES,
+                                  float(prm.get("offp_p0", exploit.OFFP_P0)))
+    except Exception:
+        return True
+
+
+def _guard(memory):
+    prm = memory.get("params")
+    if not prm or not (prm.get("guard") or prm.get("pguard")):
+        return
+    st = _state(memory)
+    if "off0" not in st:
+        st["off0"] = list(prm.get("off") or [])
+    on = bool(prm.get("guard")) and balanced(memory.get("opp") or {})
+    if on:
+        st["guarded"] = st.get("guarded", 0) + 1
+    elif prm.get("pguard") and balanced_post(st, prm):
+        why = pg_exempt(st, prm)
+        if not why and prm.get("pg_lifted") and prm.get("bounded") and not _bound_lifted(memory, prm):
+            why = "bounded"  # the exploit layer's bound still keeps its changes inside the blueprint's support
+        on = not why and not prm.get("pg_dry")
+        key = "pg_" + (why or "on")
+        st[key] = st.get(key, 0) + 1
+    prm["off"] = st["off0"] + (["card", "sd"] if on else [])
+
+
 def observe(result, memory):
-    """Update the shared opponent model after a finished hand."""
-    return v0.observe(result, memory)
+    try:
+        pg_record(result, memory, _state(memory))
+    except Exception:
+        pass
+    if "seqs" in memory and "opp" in memory:
+        v0.observe(result, memory)
+    try:
+        _guard(memory)
+    except Exception:
+        pass
 
 
 # The supplied photos end here. Any further original lines are unavailable.
