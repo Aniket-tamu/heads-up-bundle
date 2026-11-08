@@ -2,21 +2,21 @@
 agent.py - YOUR poker bot. This one file is a complete web server.
 
 Run it:
-    python agent.py                  # listens on port 5008
-    PORT=5010 python agent.py        # or pick a port
+    python agent.py                 # listens on port 5008
+    PORT=5010 python agent.py       # or pick a port
 
 Play a match against a baseline (three windows):
-    python agent.py                                 # your bot on port 5008
-    python baseline-bots/baseline_random.py         # opponent on port 5009
-    python judge_engine.py                          # judge: both halves (uses those two ports)
+    python agent.py                 # your bot on port 5008
+    python baseline-bots/baseline_random.py  # opponent on port 5009
+    python judge_engine.py          # judge: both halves (uses those two ports)
 
 Check that the tournament can run it:
-    python -m pytest -q              # tests in test_agent.py
-    ./tools/check_build.sh           # builds and smoke-tests it like the tournament
+    python -m pytest -q             # tests in test_agent.py
+    ./tools/check_build.sh          # builds and smoke-tests it like the tournament
 
 TODO:
-    1. Assign your agent a unique PARTICIPANT and AGENT_NAME below.
-    2. Implement the three functions between "YOUR CODE HERE" and "END OF YOUR CODE".
+1. Assign your agent a unique PARTICIPANT and AGENT_NAME below.
+2. Implement the three functions between "YOUR CODE HERE" and "END OF YOUR CODE".
 
 Everything under "SERVER PLUMBING" talks to the judge. You normally never
 need to change it, and if you break it the judge can't talk to your bot.
@@ -29,25 +29,23 @@ import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
-from evaluator import card_rank, card_suit, cards_to_str, omaha_score, warmup  # handy helpers, see evaluator.py
+from evaluator import card_rank, card_suit, cards_to_str, omaha_score, warmup
 from game import Action, AgentConfig, HandResult, Observation, Street
 
-# Build omaha_score's lookup table now, while the server starts, instead of
-# during your first decision (where it would eat into your time bank).
-# Do any other slow setup (loading a model, ...) here too: the server must
-# answer within 15 seconds of starting.
-warmup()
+# The template built omaha_score's lookup table here with warmup(). Our bot
+# never calls omaha_score (it uses its own exact tables in plo5bot.cards), so
+# we skip that ~0.35 s of startup CPU: the server must answer within 15 s even
+# on a slow, crowded machine.
 
-# Our bot lives in the plo5bot package; importing it loads its tables, and
+# Our bot lives in the plo5bot package: importing it loads its tables, and
 # its warmup() runs a few decisions so the first real request is fast.
 from plo5bot import bot as plo5  # noqa: E402
 
 plo5.warmup()
 
 # rename as your team/bot's name
-PARTICIPANT = "HeadsUpPlo5"
+PARTICIPANT = "HeadsUpPLO5"
 AGENT_NAME = "DuplicateGrinder"
-
 
 # ===== YOUR CODE HERE =====
 
@@ -68,25 +66,25 @@ def choose_action(obs: Observation, memory: dict) -> Action:
     """Called every time it is your turn. Return one of obs.legal_actions.
 
     What you can see in obs:
-        hand_index          which hand of the half this is (0, 1, 2, ...)
-        street              Street.PREFLOP, Street.FLOP, Street.TURN or Street.RIVER
-        hole_cards          your 5 cards as ints, sorted ascending (0-35)
-        board               board (community) cards seen so far (0, 3, 4 or 5 ints)
-        pot                 total chips both players put in this hand
-        to_call             chips you must add to match the opponent
-        my_bet, opp_bet     chips you,opponent put in on THIS street
+        hand_index       which hand of the half this is (0, 1, 2, ...)
+        street           Street.PREFLOP, Street.FLOP, Street.TURN or Street.RIVER
+        hole_cards       your 5 cards as ints, sorted ascending (0-35)
+        board            board (community) cards seen so far (0, 3, 4 or 5 ints)
+        pot              total chips both players put in this hand
+        to_call          chips you must add to match the opponent
+        my_bet, opp_bet  chips you, opponent put in on THIS street
         my_stack, opp_stack chips each player still has behind
-        is_button           True if you are the button (small blind)
-        legal_actions       the Actions you may return right now
-        raise_to            {RAISE_HALF: total, RAISE_POT: total} for legal raises
-        min_raise_to        smallest normal raise total (all-ins may be lower)
-        raises_this_street  raises so far this street (max 4)
-        action_history      this hand's actions so far; each has
-                            street, is_me, action, amount, street_total
-        big_blind           size of the big blind in chips
+        is_button        True if you are the button (small blind)
+        legal_actions    the Actions you may return right now
+        raise_to         {RAISE_HALF: total, RAISE_POT: total} for legal raises
+        min_raise_to     smallest normal raise total (all-ins may be lower)
+        raises_this_street raises so far this street (max 4)
+        action_history   this hand's actions so far; each has
+                         street, is_me, action, amount, street_total
+        big_blind        size of the big blind in chips
 
     Actions: Action.FOLD, Action.CHECK_CALL, Action.RAISE_HALF, Action.RAISE_POT
-    Cards are ints: card_rank(c) is 0 (six) .. 8 (ace), card_suit(c) is 0..3,
+    Cards are ints: card_rank(c) is 0 (six) .. 8 (ace), card_suit(c) is 0..3.
     and cards_to_str(obs.hole_cards) prints them like "6h 7c 9s Kd Ah".
     Once all 5 board cards are out, omaha_score(obs.hole_cards, obs.board)
     scores your hand (higher is better).
@@ -111,14 +109,13 @@ def on_hand_end(result: HandResult, memory: dict) -> None:
 
 # ===== END OF YOUR CODE =====
 
-
 # ===== SERVER PLUMBING (you normally don't need to edit below) =====
 # The judge calls these routes:
-#   GET  /           -> who you are (also used as the health check)
-#   POST /new-half   -> start a fresh half: memory is wiped
-#   POST /act        -> the judge sends any finished hands plus an Observation;
-#                       on_hand_end() runs for each hand, then you answer an action
-#   POST /hand-end   -> the judge sends the last finished hands of a half
+# GET  /           -> who you are (also used as the health check)
+# POST /new-half   -> start a fresh half: memory is wiped
+# POST /act        -> the judge sends any finished hands plus an Observation;
+#                     on_hand_end() runs for each hand, then you answer an action
+# POST /hand-end   -> the judge sends the last finished hands of a half
 #
 # Why "async def"? The routes run on one thread and call your functions
 # directly, so your functions never run twice at once. Your own functions
@@ -131,9 +128,9 @@ def on_hand_end(result: HandResult, memory: dict) -> None:
 # in both places.
 
 app = FastAPI()
-MEMORY: dict = {}                                   # your memory for this half
-STATUS = {"started": False}                         # has /new-half been called?
-TOKEN = os.environ.get("AGENT_TOKEN") or None       # set by the tournament
+MEMORY: dict = {}                              # your memory for this half
+STATUS = {"started": False}                    # has /new-half been called?
+TOKEN = os.environ.get("AGENT_TOKEN") or None  # set by the tournament
 
 
 async def _read_request(request: Request, path: str) -> tuple[dict, JSONResponse | None]:

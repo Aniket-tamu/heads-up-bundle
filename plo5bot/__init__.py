@@ -1,1 +1,1 @@
-"""Poker bot implementation and fast Omaha hand-evaluation helpers."""
+"""Heads-up short-deck PLO5 bot package."""

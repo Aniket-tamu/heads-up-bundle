@@ -86,7 +86,7 @@ def omaha_score(hole, board):
 def board_pair_best(board):
     """For a 3-5 card board: best (1 + dense rank) of every pair id with that board.
 
-    Returns a uint16 vector of length 630; pairs that share a card with every
+    Returns a uint16 vector of length 630: pairs that share a card with every
     board triple get 0. A hand's value is the max over its 10 pair ids.
     """
     return PT[:, board_triple_ids(board)].max(axis=1)

@@ -4,4 +4,9 @@ __pycache__/
 .pytest_cache/
 
 # Local match reports
-*.json
+out.json
+h1.json
+h2.json
+
+# Offline training artifacts (runtime data belongs in plo5bot/data)
+dev/cfr/out/

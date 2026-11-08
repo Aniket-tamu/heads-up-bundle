@@ -1,0 +1,9 @@
+.git/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
+# Offline-only generators and their multi-gigabyte training artifacts
+dev/
+work/

@@ -5,30 +5,36 @@ either uniformly or as a weighted sample. All costs are a few hundred
 microseconds to about 2 ms in numpy on one core.
 """
 
-from itertools import combinations, permutations
+from itertools import combinations
 
 import numpy as np
 
 from . import cards
 
 PT = cards.PT
-PID = np.zeros((36, 36), dtype=np.int32)
-for _a, _b in permutations(range(36), 2):
-    PID[_a, _b] = cards.pair_id(_a, _b)
-TID = np.zeros((36, 36, 36), dtype=np.int32)
-for _a, _b, _c in permutations(range(36), 3):
-    TID[_a, _b, _c] = cards.triple_id(_a, _b, _c)
-P10 = np.array(list(combinations(range(5), 2)), dtype=np.int64)
-T10 = np.array(list(combinations(range(5), 3)), dtype=np.int64)
+# PID[a, b] = colex id of the 2-card set (a, b) (0 when a == b); TID[a, b, c] likewise for 3 distinct cards.
+# Built vectorized (same values as cards.pair_id / cards.triple_id) to keep startup short.
+_CARDS = np.arange(36, dtype=np.int64)
+_HI = np.maximum(_CARDS[:, None], _CARDS[None, :])
+_LO = np.minimum(_CARDS[:, None], _CARDS[None, :])
+PID = np.where(_CARDS[:, None] != _CARDS[None, :], _HI * (_HI - 1) // 2 + _LO, 0).astype(np.int32)
+_S = np.sort(np.stack(np.meshgrid(_CARDS, _CARDS, _CARDS, indexing="ij"), axis=-1), axis=-1)
+TID = np.where((_S[..., 0] != _S[..., 1]) & (_S[..., 1] != _S[..., 2]),
+               _S[..., 2] * (_S[..., 2] - 1) * (_S[..., 2] - 2) // 6 + _S[..., 1] * (_S[..., 1] - 1) // 2 + _S[..., 0],
+               0).astype(np.int32)
+del _HI, _LO, _S
+P10 = np.array(list(combinations(range(5), 2)), dtype=np.int64)  # 10 x 2
+T10 = np.array(list(combinations(range(5), 3)), dtype=np.int64)  # 10 x 3
 
-_LP = [(i, j) for j in range(26) for i in range(j)]
+# River enumeration: the 65,780 five-card subsets of 26 live cards as local pair ids (10 x 65780).
+_LP = [(i, j) for j in range(26) for i in range(j)]  # local pair id order (colex)
 _LPI = np.array([i for i, _ in _LP], dtype=np.int64)
 _LPJ = np.array([j for _, j in _LP], dtype=np.int64)
-_LOCAL_PAIR = {p: k for k, p in enumerate(_LP)}
 _C26 = np.array(list(combinations(range(26), 5)), dtype=np.int64)
-RIVER_OPP_PAIRS = np.ascontiguousarray(np.stack(
-    [np.array([_LOCAL_PAIR[(int(a), int(b))] for a, b in zip(_C26[:, i], _C26[:, j])], dtype=np.int16)
-     for i, j in combinations(range(5), 2)]))
+# local pair id of positions (a < b) = C(b, 2) + a, the index of (a, b) in _LP
+RIVER_OPP_PAIRS = np.ascontiguousarray(np.stack([
+    (_C26[:, j] * (_C26[:, j] - 1) // 2 + _C26[:, i]).astype(np.int16)
+    for i, j in combinations(range(5), 2)]))  # 65780 x 5 local positions
 RIVER_OPP_HANDS = _C26
 
 
@@ -73,17 +79,17 @@ def sample_opponents(live, n, rng):
 def turn_equity(hole, board, n_opp=400, rng=None, opp=None):
     """Turn equity: every river card, against n_opp sampled (or given) opponent holdings."""
     rng = rng or np.random.default_rng(0)
-    live = live_cards(hole, board)
+    live = live_cards(hole, board)  # 27 cards
     if opp is None:
         opp = sample_opponents(live, n_opp, rng)
     b4 = np.asarray(board, dtype=np.int64)
-    boards = np.concatenate([np.broadcast_to(b4, (len(live), 4)), live[:, None]], axis=1)
-    tids = TID[boards[:, T10[:, 0]], boards[:, T10[:, 1]], boards[:, T10[:, 2]]]
-    pbr = PT[:, tids].max(axis=2).T
-    hv = pbr[:, hero_pairs(hole)].max(axis=1)
-    opp_pairs = PID[opp[:, P10[:, 0]], opp[:, P10[:, 1]]]
-    ov = pbr[:, opp_pairs].max(axis=2)
-    valid = ~(live[:, None, None] == opp[None, :, :]).any(axis=2)
+    boards = np.concatenate([np.broadcast_to(b4, (len(live), 4)), live[:, None]], axis=1)  # R x 5
+    tids = TID[boards[:, T10[:, 0]], boards[:, T10[:, 1]], boards[:, T10[:, 2]]]  # R x 10
+    pbr = PT[:, tids].max(axis=2).T  # R x 630
+    hv = pbr[:, hero_pairs(hole)].max(axis=1)  # R
+    opp_pairs = PID[opp[:, P10[:, 0]], opp[:, P10[:, 1]]]  # M x 10
+    ov = pbr[:, opp_pairs].max(axis=2)  # R x M
+    valid = ~(live[:, None, None] == opp[None, :, :]).any(axis=2)  # river not in opp hand
     res = (ov < hv[:, None]) + 0.5 * (ov == hv[:, None])
     return float((res * valid).sum() / valid.sum())
 
@@ -91,17 +97,18 @@ def turn_equity(hole, board, n_opp=400, rng=None, opp=None):
 def flop_equity(hole, board, n=800, rng=None, opp=None):
     """Flop equity by joint sampling of (opponent holding, turn, river)."""
     rng = rng or np.random.default_rng(0)
-    live = live_cards(hole, board)
+    live = live_cards(hole, board)  # 28 cards
     if opp is None:
         pick = np.argsort(rng.random((n, len(live))), axis=1)[:, :7]
         dealt = live[pick]
         opp, runout = dealt[:, :5], dealt[:, 5:]
     else:
+        # runouts drawn from cards not in each given opponent hand
         n = len(opp)
         free = np.where((live[None, :, None] == opp[:, None, :]).any(axis=2), 2.0, rng.random((n, len(live))))
         runout = live[np.argsort(free, axis=1)[:, :2]]
     b = np.concatenate([np.broadcast_to(np.asarray(board, dtype=np.int64), (n, 3)), runout], axis=1)
-    tids = TID[b[:, T10[:, 0]], b[:, T10[:, 1]], b[:, T10[:, 2]]]
+    tids = TID[b[:, T10[:, 0]], b[:, T10[:, 1]], b[:, T10[:, 2]]]  # n x 10
     hv = PT[hero_pairs(hole)[None, :, None], tids[:, None, :]].max(axis=(1, 2))
     opp_pairs = PID[opp[:, P10[:, 0]], opp[:, P10[:, 1]]]
     ov = PT[opp_pairs[:, :, None], tids[:, None, :]].max(axis=(1, 2))

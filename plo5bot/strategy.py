@@ -1,4 +1,9 @@
-"""Decision policy (v0: equity-driven tight-aggressive play)."""
+"""Decision policy (v2: equity-driven tight-aggressive play).
+
+act(obs, memory, budget_s) returns an Action from obs.legal_actions.
+observe(result, memory) learns from finished hands. Both may raise: the
+caller (bot.py) catches everything and falls back to a legal action.
+"""
 
 import os
 from math import comb
@@ -55,7 +60,7 @@ def range_equity(obs, frac, budget_s):
     n = 300 if budget_s > 0.003 else 150
     pool = equity.sample_opponents(live, int(n / max(frac, 0.15)), rng)
     if frac < 1:
-        tids = [cards.triple_id(*t) for t in _triples(board)]
+        tids = (cards.triple_id(**t) for t in _triples(board))
         opp_pairs = equity.PID[pool[:, equity.P10[:, 0]], pool[:, equity.P10[:, 1]]]
         cur = cards.PT[opp_pairs[:, :, None], np.array(tids)[None, None, :]].max(axis=(1, 2))
         keep = np.argsort(-cur, kind="stable")[:max(20, int(len(pool) * frac))]
@@ -90,14 +95,14 @@ def act(obs, memory, budget_s):
     if obs.street == Street.PREFLOP:
         e, e40, e20 = preflop_equities(obs.hole_cards)
         opp_raises = sum(1 for a in obs.action_history if not a.is_me and a.action in (Action.RAISE_HALF, Action.RAISE_POT))
-        if obs.to_call == 0:
+        if obs.to_call == 0:                       # BB after a limp
             return _raise(obs) if (can_raise and e >= 0.56) else Action.CHECK_CALL
-        if opp_raises == 0:
+        if opp_raises == 0:                       # SB first decision
             if can_raise and e >= 0.52:
                 return _raise(obs)
             return Action.CHECK_CALL if e >= 0.42 else Action.FOLD
         eq = e40 if opp_raises == 1 else e20
-        if can_raise and eq >= (0.55 if opp_raises == 1 else 0.56):
+        if can_raise and e >= 0.55 and opp_raises == 1 and e >= 0.56:
             return _raise(obs)
         return Action.CHECK_CALL if eq >= price + 0.03 else Action.FOLD
 
@@ -119,5 +124,5 @@ def act(obs, memory, budget_s):
 
 
 def observe(result, memory):
-    seq, me = memory["seqs"].pop(result.hand_index, ((), 1))
+    seq, me = memory["seqs"].pop(result.hand_index, ((), 1))  # never acted => we were the big blind
     opponent.update(memory["opp"], seq, me, result)

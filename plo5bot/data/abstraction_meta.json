@@ -1,0 +1,94 @@
+{
+ "version": 1,
+ "counts": {
+  "preflop": 256,
+  "flop": 128,
+  "turn": 128,
+  "river": 128
+ },
+ "eq_bins": {
+  "flop": 16,
+  "turn": 16
+ },
+ "second_feature": {
+  "flop": "flop_sqr (E[HS_river^2])",
+  "turn": "turn_sq (E[HS^2])"
+ },
+ "features": [
+  "pf_class",
+  "flop_eq2",
+  "flop_now2",
+  "turn_eq2",
+  "turn_now2",
+  "turn_sq",
+  "river_eq2",
+  "flop_sqt",
+  "flop_sqr"
+ ],
+ "second_bins_per_eq_bin": {
+  "flop": [
+   9,
+   8,
+   8,
+   8,
+   9,
+   9,
+   9,
+   9,
+   9,
+   9,
+   9,
+   8,
+   7,
+   6,
+   6,
+   5
+  ],
+  "turn": [
+   9,
+   8,
+   9,
+   10,
+   10,
+   10,
+   10,
+   10,
+   8,
+   8,
+   8,
+   8,
+   6,
+   6,
+   6,
+   2
+  ]
+ },
+ "samples": {
+  "flop_runouts": 378,
+  "flop_opp_per_runout": 2,
+  "turn_rivers": 27,
+  "turn_opp_per_river": 96,
+  "river_opp": "all 65780 (exact)"
+ },
+ "totals": {
+  "flop": 756,
+  "turn": 2592,
+  "river": 65780
+ },
+ "gamma": {
+  "eq": 1.5,
+  "river": 1.25
+ },
+ "calibration": {
+  "deals": 400000,
+  "views_per_street": 800000,
+  "seed": 20261108
+ },
+ "seed": 20261107,
+ "files": {
+  "preflop": "abs_pf_bucket.npy (uint16[19998], by preflop_class.npy class id)",
+  "flop": "abs_flop_opp.npy, abs_flop_eq_cuts.npy, abs_flop_now_cuts.npy, abs_flop_offsets.npy",
+  "turn": "abs_turn_opp.npy, abs_turn_eq_cuts.npy, abs_turn_now_cuts.npy, abs_turn_offsets.npy",
+  "river": "abs_river_cuts.npy"
+ }
+}

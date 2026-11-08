@@ -14,7 +14,7 @@ _FOLD = int(Action.FOLD)
 
 
 def _consistent(node, me, result):
-    """Does terminal `node` match the result for relative player `me` (0 button, 1 big blind)?"""
+    """Does terminal `node` match the result for relative player `me` (0 button, 1 big blind)"""
     if not node.terminal:
         return False
     mine, theirs = node.contrib[me], node.contrib[1 - me]
@@ -53,7 +53,7 @@ def complete(seq, me, result, max_extra=3):
                     return node.seq
                 continue
             if node.actor == me:
-                continue
+                continue  # we would have been asked to act; not how this hand ended
             nxt.extend(node.children.values())
         frontier = nxt
         if not frontier:
@@ -62,7 +62,7 @@ def complete(seq, me, result, max_extra=3):
 
 
 def opponent_decisions(full_seq, me):
-    """[(node id, action value)] for every opponent decision in a full sequence."""
+    """[(node_id, action value)] for every opponent decision in a full sequence."""
     out = []
     nid = tree.INDEX[()]
     for a in full_seq:
